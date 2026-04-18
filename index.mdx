@@ -1,97 +1,67 @@
 ---
-title: "Introduction"
-description: "Welcome to the new home for your documentation"
+title: "LocalAudio Subtitles with Subtitle Engine"
+description: "Drop-in module replacement that routes LocalAudio subtitle display through Subtitle Engine for richer, animated subtitles in Roblox games."
 ---
 
-## Setting up
+LocalAudio Subtitles with Subtitle Engine is a modification to TheNexusAvenger's LocalAudioSubtitles that replaces the native subtitle renderer with Norteous's Subtitle Engine. You get all the powerful subtitle configuration of LocalAudio — speakers, macros, levels, and rolloff detection — while your players see polished, animated subtitles rendered by Subtitle Engine.
 
-Get your documentation site up and running in minutes.
-
-<Card
-  title="Start here"
-  icon="rocket"
-  href="/quickstart"
-  horizontal
->
-  Follow our three step quickstart guide.
-</Card>
-
-## Make it yours
-
-Design a docs site that looks great and empowers your users.
-
-<Columns cols={2}>
-  <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
-  >
-    Edit your docs locally and preview them in real time.
+<CardGroup cols={2}>
+  <Card title="Installation" icon="download" href="/installation">
+    Replace your existing LocalAudioSubtitles module with this one in a few steps.
   </Card>
-  <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
-  >
-    Customize the design and colors of your site to match your brand.
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Set up subtitles and get audio playing with captions in minutes.
   </Card>
-    <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Organize your docs to help users find what they need and succeed with your product.
+  <Card title="Subtitle Data Guide" icon="file-lines" href="/guides/subtitle-data">
+    Learn how to structure audio data with subtitle entries for your game.
   </Card>
-  <Card
-    title="API documentation"
-    icon="terminal"
-    href="/api-reference/introduction"
-  >
-    Auto-generate API documentation from OpenAPI specifications.
+  <Card title="API Reference" icon="code" href="/api/localaudiosubtitles">
+    Explore the full public API for LocalAudioSubtitles.
   </Card>
-</Columns>
+</CardGroup>
 
-## Create beautiful pages
+## How it works
 
-Everything you need to create world-class documentation.
+This module sits between LocalAudio's event system and your players' screens. When LocalAudio fires a `ShowSubtitle` event for an audio track, this module intercepts it and calls Subtitle Engine's `localSubtitle` function instead of rendering a native Roblox GUI.
 
-<Columns cols={2}>
-  <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
-  >
-    Use MDX to style your docs pages.
-  </Card>
-  <Card
-    title="Code samples"
-    icon="code"
-    href="/essentials/code"
-  >
-    Add sample code to demonstrate how to use your product.
-  </Card>
-  <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
-  >
-    Display images and other media.
-  </Card>
-  <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
-  >
-    Write once and reuse across your docs.
-  </Card>
-</Columns>
+<Steps>
+  <Step title="Replace the module">
+    Swap out your existing `LocalAudioSubtitles` module with this one inside your `Packages` folder.
+  </Step>
+  <Step title="Ensure Subtitle Engine is installed">
+    Place Subtitle Engine in `ReplicatedStorage`. The "Self" profile must exist with no speaker name configured.
+  </Step>
+  <Step title="Set up your subtitle data">
+    Create a `SubtitleDataModule` defining speakers, macros, and levels. Pass it to `LocalAudioSubtitles:SetUp()`.
+  </Step>
+  <Step title="Enjoy animated subtitles">
+    Players see Subtitle Engine's polished display — with typing animations, speaker colors, and proper timing — synced to your audio.
+  </Step>
+</Steps>
 
-## Need inspiration?
+## Key features
 
-<Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
->
-  Browse our showcase of exceptional documentation sites.
-</Card>
+<CardGroup cols={2}>
+  <Card title="Typing animations" icon="keyboard">
+    Subtitles appear with a configurable per-character typing delay, making dialogue feel alive.
+  </Card>
+  <Card title="Speaker profiles" icon="user">
+    Define display names, colors, and modifier variants for each speaker in your game.
+  </Card>
+  <Card title="Macro system" icon="copy">
+    Create reusable subtitle templates (macros) to avoid repeating common subtitle configurations.
+  </Card>
+  <Card title="Subtitle levels" icon="layer-group">
+    Filter which subtitles appear based on player accessibility preferences or game context.
+  </Card>
+  <Card title="Spatial audio support" icon="location-dot">
+    Subtitles only appear when the player is within rolloff range of a positioned audio source.
+  </Card>
+  <Card title="VR support" icon="vr-cardboard">
+    Integrates with Nexus VR Core to display subtitles on a 3D screen in VR experiences.
+  </Card>
+</CardGroup>
+
+<Note>
+  This module requires both [LocalAudio](https://github.com/IITPP-Roblox/LocalAudio) and [Subtitle Engine](https://devforum.roblox.com/t/subtitle-engine/3781802) to be installed in your Roblox project. See the [Installation](/installation) page for details.
+</Note>

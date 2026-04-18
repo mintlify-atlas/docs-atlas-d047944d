@@ -1,0 +1,111 @@
+---
+title: "LocalAudioSubtitles module API reference"
+description: "Complete reference for the LocalAudioSubtitles module: its property, all three methods, their parameters, and a full working usage example."
+---
+
+`LocalAudioSubtitles` is the main module you interact with in your LocalScript. It owns the subtitle window, connects to LocalAudio's event system, and exposes methods to show subtitles manually or to filter them by priority level. All three methods use Luau's method-call syntax (`:`) because the module itself is passed as `self`.
+
+## Property
+
+<ResponseField name="MinimumSubtitleLevel" type="number" default="0">
+  The current minimum level threshold. When `ShowSubtitle` is called with a `Level` argument, it compares that value against `MinimumSubtitleLevel`. If the subtitle's level is **greater than** this value, the subtitle is skipped and not shown.
+
+  The default value of `0` means every subtitle that carries a level will be hidden unless you raise this threshold with `SetSubtitleLevel`. Subtitles with no `Level` set are always shown regardless of this value.
+</ResponseField>
+
+## Methods
+
+### SetUp
+
+Registers your subtitle data with the event transform system and connects LocalAudio's `ShowSubtitle` event to the subtitle window. Call this once in your LocalScript before or alongside `LocalAudio:SetUp()`.
+
+<ParamField path="SubtitlesData" type="SubtitleDataModule" required>
+  The subtitle data module containing your `Speakers`, `Macros`, and `Levels` tables. Pass the return value of `require()` on your `Subtitles` module. If you have no subtitle data yet, you can pass `nil` — `SetUp` will still connect the event handler, but no subtitle entries will be registered.
+</ParamField>
+
+<Note>
+  `SetUp` must be called before `LocalAudio:SetUp()`, or at the very least in the same LocalScript so both run on the client. Calling it after LocalAudio has already begun firing events will cause early subtitle events to be missed.
+</Note>
+
+---
+
+### ShowSubtitle
+
+Shows a subtitle in the subtitle window. This method is called automatically by the event handler wired up in `SetUp`, but you can also call it manually to display arbitrary subtitle text without an associated audio event.
+
+<ParamField path="Message" type="string" required>
+  The text content to display in the subtitle window.
+</ParamField>
+
+<ParamField path="Duration" type="number" required>
+  How long in seconds the subtitle remains visible.
+</ParamField>
+
+<ParamField path="Level" type="number">
+  Optional numeric priority level for this subtitle. If provided and the value is **greater than** `MinimumSubtitleLevel`, the subtitle is skipped entirely and the method returns immediately. If omitted, the subtitle always shows.
+</ParamField>
+
+<ParamField path="ReferenceSound" type="Sound">
+  Optional reference to a `Sound` instance. When provided, the subtitle tracks the sound's `PlaybackLoudness` every frame and hides or shows itself based on whether the sound is audible at the player's position. This is how rolloff-based spatial audio detection works — if the sound is too far away to be heard, the subtitle is suppressed. Pass `nil` (or omit the argument) for non-spatial audio.
+</ParamField>
+
+<Note>
+  The `SetUp` event handler passes `ReferenceSound` only when the audio is attached to a `Part` (spatial audio). For non-spatial tracks the argument is `nil`, meaning the subtitle always shows regardless of distance.
+</Note>
+
+---
+
+### SetSubtitleLevel
+
+Sets the `MinimumSubtitleLevel` property. You can call this at any point at runtime to dynamically change which subtitle categories are shown, making it suitable for use in an accessibility settings menu.
+
+<ParamField path="MinimumSubtitleLevel" type="number" required>
+  The new minimum level threshold. Subtitles with a numeric level greater than this value will be suppressed by `ShowSubtitle`. Pass `0` to hide all leveled subtitles (the default). Pass a higher number to progressively include more categories.
+</ParamField>
+
+<Tip>
+  Expose `SetSubtitleLevel` in your game's accessibility or settings menu to let players choose how many subtitle categories they see. A common pattern is two options: "Dialogue only" (level 1) and "All subtitles" (level 2 or higher). See the [Subtitle Levels guide](/guides/subtitle-levels) for a worked example.
+</Tip>
+
+---
+
+## Complete usage example
+
+The following LocalScript shows the full recommended setup: requiring the modules, optionally filtering by level, calling `SetUp` with your subtitle data, then starting LocalAudio.
+
+```luau LocalAudioSubtitlesSetup.client.luau
+--!strict
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local LocalAudioSubtitles = require(
+    ReplicatedStorage:WaitForChild("Packages"):WaitForChild("LocalAudioSubtitles")
+)
+local LocalAudio = require(
+    ReplicatedStorage:WaitForChild("Packages"):WaitForChild("LocalAudio")
+)
+local SubtitlesData = require(
+    ReplicatedStorage:WaitForChild("Data"):WaitForChild("Subtitles")
+)
+
+-- Optional: only show Dialog-level subtitles (suppress ExtraAnnouncement and above).
+-- Remove this line to show all subtitles (default MinimumSubtitleLevel is 0,
+-- which hides all leveled subtitles — raise it to match your highest level to show all).
+LocalAudioSubtitles:SetSubtitleLevel(2)
+
+-- Register subtitle data and connect the LocalAudio event handler.
+LocalAudioSubtitles:SetUp(SubtitlesData :: any)
+
+-- Start LocalAudio on the client.
+LocalAudio:SetUp()
+```
+
+To show a subtitle manually — for example, from a UI button or a game event — call `ShowSubtitle` directly:
+
+```luau
+-- Show a plain subtitle for 4 seconds with no level filtering.
+LocalAudioSubtitles:ShowSubtitle("System: Checkpoint reached.", 4)
+
+-- Show a subtitle that respects the current MinimumSubtitleLevel.
+LocalAudioSubtitles:ShowSubtitle("(Ambient hum)", 6, 2)
+```

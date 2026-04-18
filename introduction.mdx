@@ -1,0 +1,38 @@
+---
+title: "Introduction to LocalAudio Subtitles with Subtitle Engine"
+description: "A drop-in replacement for LocalAudioSubtitles that routes subtitle display through Subtitle Engine for polished, animated captions in Roblox."
+---
+
+LocalAudio Subtitles with Subtitle Engine is a modification to [TheNexusAvenger's LocalAudioSubtitles](https://github.com/IITPP-Roblox/LocalAudio-Subtitles) that replaces the native subtitle renderer with [Norteous's Subtitle Engine](https://devforum.roblox.com/t/subtitle-engine/3781802). You keep all of LocalAudio's configuration capabilities — speakers, macros, levels, and spatial rolloff detection — while your players see Subtitle Engine's polished animated display instead of Roblox's built-in subtitle GUI.
+
+## Why this module exists
+
+LocalAudio provides a robust system for associating subtitle data with audio tracks, but its native renderer is limited to basic on-screen text. Subtitle Engine offers significantly richer output: per-character typing animations, configurable speaker colors, and a clean UI that fits modern Roblox aesthetics. This module bridges the two: LocalAudio handles _what_ to show and _when_, Subtitle Engine handles _how_ it looks.
+
+## Dependencies
+
+This module depends on two external packages that must be installed separately:
+
+- **LocalAudio** (`iitpp-roblox/localaudio@1.5.2`) — the audio and subtitle data management system this module extends. Install via Wally.
+- **Subtitle Engine** — Norteous's GUI subtitle renderer. Install from the [Roblox DevForum](https://devforum.roblox.com/t/subtitle-engine/3781802) and place it in `ReplicatedStorage`.
+
+## Drop-in replacement
+
+If you are already using the original LocalAudioSubtitles, migrating is straightforward. Replace your existing `LocalAudioSubtitles` module with the one from this repository and ensure Subtitle Engine is installed with a "Self" profile that has no speaker name set. No changes to your subtitle data or setup scripts are required.
+
+<CardGroup cols={2}>
+  <Card title="Installation" icon="download" href="/installation">
+    Step-by-step instructions for installing Subtitle Engine, LocalAudio, and this module.
+  </Card>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    A complete working example — subtitle data, LocalScript, and server setup — to get you running in minutes.
+  </Card>
+</CardGroup>
+
+## Limitations
+
+This module inherits constraints from both dependencies. Certain Subtitle Engine configuration changes may break compatibility, and some LocalAudio features behave differently when routed through a third-party renderer. See the [Limitations](/resources/limitations) page for details.
+
+## License
+
+This module is released under the [MIT License](https://github.com/IITPP-Roblox/LocalAudio-Subtitles/blob/main/LICENSE).

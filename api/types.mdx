@@ -1,0 +1,145 @@
+---
+title: "Type definitions for LocalAudio Subtitles"
+description: "Full reference for the three exported Luau types: SubtitleData, SubtitleSpeaker, and SubtitleDataModule, with field descriptions and a complete example."
+---
+
+LocalAudio Subtitles exports three Luau types from `LocalAudioSubtitlesTypes.luau`. You do not need to require that module directly — the types are re-exported from the main `LocalAudioSubtitles` module and used automatically by the library. This page documents every field so you can author subtitle data confidently.
+
+## SubtitleData
+
+`SubtitleData` describes a single subtitle entry attached to an audio track. Every field is optional, but `Message` is required for anything to appear on screen. Fields omitted at the entry level can be supplied by a macro (via the `Macro` field) or resolved from a speaker (via the `Speaker` field).
+
+<ParamField path="Time" type="number">
+  Start time in seconds from the beginning of the audio at which this subtitle should appear. Defaults to `0` if omitted.
+</ParamField>
+
+<ParamField path="Duration" type="number">
+  How long in seconds the subtitle remains visible. If omitted, the duration is auto-calculated as the gap between this entry's `Time` and the next entry's `Time`, or from this entry's `Time` to the audio's total length if this is the last entry. See the [Subtitle Data guide](/guides/subtitle-data) for details.
+</ParamField>
+
+<ParamField path="Message" type="string">
+  The text content of the subtitle. Supports Roblox rich text internally — the engine wraps `MessageColor` and `SpeakerColor` in `<font color="rgb(...)">` tags automatically. You do not need to write raw rich text yourself.
+</ParamField>
+
+<ParamField path="MessageColor" type="Color3">
+  A `Color3` applied as a rich-text color to the entire message body. Applied as a `<font color="rgb(R,G,B)">` tag wrapping the message.
+</ParamField>
+
+<ParamField path="Speaker" type="string">
+  The key of a speaker defined in the `Speakers` table of your `SubtitleDataModule`. The engine resolves the speaker's `DisplayName` and `Color` automatically. Use `SpeakerDisplayName` or `SpeakerColor` on the entry to override them for this line only.
+</ParamField>
+
+<ParamField path="SpeakerModifier" type="string">
+  The key of a modifier variant defined in the speaker's `Modifiers` table. When set, the modifier's `Color` and `DisplayName` (if present) override the speaker's base values for this entry only. Has no effect if `Speaker` is not also set.
+</ParamField>
+
+<ParamField path="SpeakerDisplayName" type="string">
+  Overrides the speaker's displayed name for this entry only. Takes precedence over both the speaker's `DisplayName` and any modifier `DisplayName`.
+</ParamField>
+
+<ParamField path="SpeakerColor" type="Color3">
+  Overrides the speaker name color for this entry only. Takes precedence over the speaker's `Color` and any modifier `Color`.
+</ParamField>
+
+<ParamField path="Level" type="string | number">
+  The subtitle priority level for this entry. Accepts a raw number or the string key of a level defined in `SubtitleDataModule.Levels`. String values are resolved to their numeric equivalents at event-transform time. If the resolved number exceeds `LocalAudioSubtitles.MinimumSubtitleLevel`, the subtitle is suppressed. Entries with no level set are always shown.
+</ParamField>
+
+<ParamField path="Macro" type="string">
+  The key of a macro defined in `SubtitleDataModule.Macros`. The macro's fields are merged into this entry first; the entry's own fields take precedence over any overlapping macro fields. Macros can themselves reference other macros, forming a chain — the engine resolves the full chain in order from ancestor to descendant.
+</ParamField>
+
+---
+
+## SubtitleSpeaker
+
+`SubtitleSpeaker` defines a named character whose display name and color are applied automatically to any subtitle entry that references it via the `Speaker` field.
+
+<ParamField path="Color" type="Color3">
+  The `Color3` used to render the speaker's name prefix in the subtitle. Applied as a `<font color="rgb(...)">` rich text tag.
+</ParamField>
+
+<ParamField path="DisplayName" type="string">
+  The human-readable name shown before the subtitle message. If omitted, the speaker's table key is used as the display name.
+</ParamField>
+
+<ParamField path="Modifiers" type="{ [string]: { Color: Color3?, DisplayName: string? } }">
+  A table of named variants that override the speaker's `Color` and/or `DisplayName` for specific subtitle entries. Reference a modifier by setting `SpeakerModifier` on the entry. Each modifier can carry a `Color`, a `DisplayName`, or both.
+</ParamField>
+
+---
+
+## SubtitleDataModule
+
+`SubtitleDataModule` is the type of the table you return from your `Subtitles` module and pass to `LocalAudioSubtitles:SetUp()`. It contains the three top-level lookup tables the engine uses to resolve speakers, macros, and level names.
+
+<ParamField path="Speakers" type="{ [string]: SubtitleSpeaker }" required>
+  A map of speaker IDs (arbitrary strings) to their `SubtitleSpeaker` configuration. Referenced by the `Speaker` field on subtitle entries.
+</ParamField>
+
+<ParamField path="Macros" type="{ [string]: SubtitleData }" required>
+  A map of macro names to reusable `SubtitleData` templates. Referenced by the `Macro` field on subtitle entries and on other macros.
+</ParamField>
+
+<ParamField path="Levels" type="{ [string]: number }" required>
+  A map of level name strings to their numeric priority values. Referenced by the `Level` field on subtitle entries when a string is used instead of a raw number.
+</ParamField>
+
+---
+
+## Complete example
+
+The following is a complete `SubtitleDataModule` from the demo project. It defines two speakers (one with modifier variants), two macros (one chained), and two levels.
+
+```luau Subtitles.luau
+return {
+    Speakers = {
+        Keepsake = {
+            Color = Color3.fromRGB(0, 170, 255),
+            Modifiers = {
+                Chorus = {
+                    Color = Color3.fromRGB(30, 200, 255),
+                },
+                Background = {
+                    Color = Color3.fromRGB(0, 140, 225),
+                },
+            },
+        },
+        ASAS = {
+            Color = Color3.fromRGB(200, 200, 200),
+        },
+    },
+
+    Macros = {
+        -- Base macro: sets color and level shared by warning subtitles.
+        WarningAnnouncement = {
+            MessageColor = Color3.fromRGB(255, 170, 0),
+            Level = "Dialog",
+        },
+        -- Chained macro: inherits from WarningAnnouncement,
+        -- then adds its own Time, Duration, and Message.
+        WarningAnnouncementChime = {
+            Time = 0,
+            Duration = 1,
+            Message = "(Warning announcement chime)",
+            MessageColor = Color3.fromRGB(255, 170, 0),
+            Level = "ExtraAnnouncement",
+            Macro = "WarningAnnouncement",
+        },
+        NormalAnnouncementChime = {
+            Time = 0,
+            Duration = 1,
+            Message = "(Announcement chime)",
+            MessageColor = Color3.fromRGB(0, 170, 255),
+            Level = "ExtraAnnouncement",
+        },
+    },
+
+    Levels = {
+        Dialog = 1,
+        ExtraAnnouncement = 2,
+    },
+}
+```
+
+With `MinimumSubtitleLevel` set to `1`, only `Dialog`-level entries are shown. Set it to `2` to include `ExtraAnnouncement` entries as well. See the [Subtitle Levels guide](/guides/subtitle-levels) for filtering behavior details.

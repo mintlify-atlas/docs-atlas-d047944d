@@ -1,0 +1,172 @@
+---
+title: "Demo project walkthrough"
+description: "Walk through the complete demo project included in the repository to see speakers, macros, levels, and spatial audio all working together."
+---
+
+The repository ships with a complete demo project under the `demo/` directory. It demonstrates every major feature — speakers with color modifiers, reusable macros, subtitle levels, spatial audio with rolloff, and runtime level toggling — and is the fastest way to see the module working before integrating it into your own game.
+
+## Project structure
+
+The demo is organized to match a standard Roblox game hierarchy:
+
+```
+demo/
+├── ReplicatedStorage/
+│   └── Data/
+│       ├── Audio.luau        -- Sound definitions with subtitle entries
+│       └── Subtitles.luau    -- SubtitleDataModule (speakers, macros, levels)
+├── StarterPlayerScripts/
+│   ├── LocalAudioSubtitlesSetup.client.luau  -- Initializes both modules
+│   └── TestButtons.client.luau               -- On-screen buttons to trigger audio
+└── ServerScriptService/
+    └── LocalAudioSetup.server.luau           -- Server-side LocalAudio require
+```
+
+## Demo files
+
+### Subtitles.luau — the subtitle data module
+
+This file defines all speakers, macros, and levels used across the demo audio tracks.
+
+```luau Subtitles.luau
+return {
+    Speakers = {
+        Keepsake = {
+            Color = Color3.fromRGB(0, 170, 255),
+            Modifiers = {
+                Chorus = {
+                    Color = Color3.fromRGB(30, 200, 255),
+                },
+                Background = {
+                    Color = Color3.fromRGB(0, 140, 225),
+                },
+            },
+        },
+        ASAS = {
+            Color = Color3.fromRGB(200, 200, 200),
+        },
+    },
+    Macros = {
+        NormalAnnouncementChime = {
+            Time = 0,
+            Duration = 1,
+            Message = "(Announcement chime)",
+            MessageColor = Color3.fromRGB(0, 170, 255),
+            Level = "ExtraAnnouncement",
+        },
+        WarningAnnouncement = {
+            MessageColor = Color3.fromRGB(255, 170, 0),
+            Level = "Dialog",
+        },
+        WarningAnnouncementChime = {
+            Time = 0,
+            Duration = 1,
+            Message = "(Warning announcement chime)",
+            MessageColor = Color3.fromRGB(255, 170, 0),
+            Level = "ExtraAnnouncement",
+            Macro = "WarningAnnouncement",
+        },
+    },
+    Levels = {
+        Dialog = 1,
+        ExtraAnnouncement = 2,
+    },
+}
+```
+
+### LocalAudioSubtitlesSetup.client.luau — initialization
+
+This LocalScript in `StarterPlayerScripts` sets up both modules. `LocalAudioSubtitles:SetUp()` must be called before `LocalAudio:SetUp()`.
+
+```luau LocalAudioSubtitlesSetup.client.luau
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local LocalAudioSubtitles = require(ReplicatedStorage:WaitForChild("Packages"):WaitForChild("LocalAudioSubtitles"))
+local LocalAudio = require(ReplicatedStorage:WaitForChild("Packages"):WaitForChild("LocalAudio"))
+local SubtitlesData = require(ReplicatedStorage:WaitForChild("Data"):WaitForChild("Subtitles"))
+
+LocalAudioSubtitles:SetUp(SubtitlesData :: any)
+LocalAudio:SetUp()
+```
+
+### LocalAudioSetup.server.luau — server setup
+
+A simple server Script that requires LocalAudio to initialize it on the server side.
+
+```luau LocalAudioSetup.server.luau
+require(game:GetService("ReplicatedStorage"):WaitForChild("Packages"):WaitForChild("LocalAudio"))
+```
+
+### TestButtons.client.luau — interactive test UI
+
+This LocalScript creates four on-screen buttons to trigger the demo audio tracks and test level toggling at runtime.
+
+```luau TestButtons.client.luau
+local Workspace = game:GetService("Workspace")
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local LocalAudio = require(ReplicatedStorage:WaitForChild("Packages"):WaitForChild("LocalAudio"))
+local LocalAudioSubtitles = require(ReplicatedStorage:WaitForChild("Packages"):WaitForChild("LocalAudioSubtitles"))
+LocalAudioSubtitles:SetSubtitleLevel(2)
+
+local ButtonsScreenGui = Instance.new("ScreenGui")
+ButtonsScreenGui.Name = "TestButtons"
+ButtonsScreenGui.ResetOnSpawn = false
+ButtonsScreenGui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
+
+local WorldSpaceSoundPart = Instance.new("Part")
+WorldSpaceSoundPart.CFrame = CFrame.new(0, 5, 200)
+WorldSpaceSoundPart.Anchored = true
+WorldSpaceSoundPart.BrickColor = BrickColor.new("Bright blue")
+WorldSpaceSoundPart.Parent = Workspace
+
+for i, ButtonName in {"ChangeLevel", "Announcement.Normal", "Announcement.Warning", "MultiSubtitleDemo"} do
+    local Button = Instance.new("TextButton")
+    Button.Size = UDim2.new(0, 200, 0, 50)
+    Button.Position = UDim2.new(0.5, -100, 0, 50 * (i - 1))
+    Button.Parent = ButtonsScreenGui
+
+    if ButtonName == "ChangeLevel" then
+        local CurrentLevel = 2
+        Button.Text = "CurrentSubtitleLevel: 2"
+        Button.MouseButton1Down:Connect(function()
+            CurrentLevel = (CurrentLevel + 1) % 3
+            Button.Text = `CurrentSubtitleLevel: {CurrentLevel}`
+            LocalAudioSubtitles:SetSubtitleLevel(CurrentLevel)
+        end)
+    else
+        Button.Text = `Play {ButtonName}`
+        Button.MouseButton1Down:Connect(function()
+            LocalAudio:PlayAudio(ButtonName, ButtonName == "Announcement.Warning" and WorldSpaceSoundPart or nil)
+        end)
+    end
+end
+```
+
+## Demo scenarios
+
+<AccordionGroup>
+  <Accordion title="Normal announcement">
+    Plays `Announcement.Normal` (asset ID `7750285488`, 5.49s). At `t=0s`, the `NormalAnnouncementChime` macro fires — a 1-second blue chime subtitle at level `ExtraAnnouncement`. At `t=1s`, the ASAS speaker line appears: *"Attention: Service personnel, please clear helicopter hangar 1."* at level `Dialog`.
+
+    With `MinimumSubtitleLevel = 2`, both the chime and the spoken line show (neither level exceeds 2). With `MinimumSubtitleLevel = 1`, only the spoken `Dialog`-level line shows — the `ExtraAnnouncement` chime (level 2) is suppressed because `1 < 2`. With `MinimumSubtitleLevel = 0`, no leveled subtitles show at all.
+  </Accordion>
+
+  <Accordion title="Warning announcement (spatial audio)">
+    Plays `Announcement.Warning` (asset ID `6277145317`, 5.632s) attached to `WorldSpaceSoundPart` at `CFrame.new(0, 5, 200)`. The sound has `RollOffMaxDistance = 50`, so only players within 50 studs of that position will see subtitles.
+
+    The `WarningAnnouncementChime` macro (which itself inherits from `WarningAnnouncement`) fires at `t=0s` with an orange chime. Then two warning lines from the ASAS speaker appear at `t=1s` and `t=3.5s`.
+  </Accordion>
+
+  <Accordion title="Multi-subtitle demo (music lyrics)">
+    Plays `MultiSubtitleDemo` (asset ID `7029099738`, 205 seconds) — a full song with timed lyric subtitles. A persistent track title subtitle runs for the full duration. Individual lyric lines use the `Keepsake` speaker with `Chorus` and `Background` modifiers for color variation. This demo showcases long-form subtitle sequences with modifier-based color changes.
+  </Accordion>
+
+  <Accordion title="Level toggle button">
+    The **ChangeLevel** button cycles `MinimumSubtitleLevel` through `2 → 0 → 1 → 2 → ...` at runtime. Use it alongside the announcement buttons to see how level filtering hides or shows different subtitle tiers without reloading anything.
+  </Accordion>
+</AccordionGroup>
+
+<Tip>
+  Use the demo as a starting template. Copy `Subtitles.luau` and `Audio.luau` into your own project and replace the content with your game's audio and dialogue data.
+</Tip>

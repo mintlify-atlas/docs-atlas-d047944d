@@ -1,0 +1,151 @@
+---
+title: "Subtitle Data: Fields and Audio Attachment"
+description: "Learn how to define subtitle entries, attach them to audio sounds, and control timing, colors, and speaker overrides in LocalAudio Subtitles."
+---
+
+Subtitle data is the core of LocalAudio Subtitles. Each subtitle entry describes a line of text that appears at a specific moment during audio playback. You attach one or more entries to an audio sound definition, and the engine handles the rest — timing, display, and teardown.
+
+## The SubtitleData entry type
+
+Every subtitle entry is a Luau table that can include any combination of the following fields. All fields are optional, but `Message` is needed to display anything useful.
+
+<ParamField path="Time" type="number">
+  The timestamp in seconds (from the start of the audio) at which this subtitle should appear. Defaults to `0` if omitted.
+</ParamField>
+
+<ParamField path="Duration" type="number">
+  How long in seconds the subtitle remains visible. If omitted, the duration is calculated automatically — see [Duration auto-calculation](#duration-auto-calculation) below.
+</ParamField>
+
+<ParamField path="Message" type="string">
+  The text content of the subtitle line. Supports Roblox rich text internally (the engine wraps colors in `<font>` tags).
+</ParamField>
+
+<ParamField path="MessageColor" type="Color3">
+  Colorizes the entire message text using a Roblox `Color3` value. Internally applied as a `<font color="rgb(...)">` rich text tag around the message.
+</ParamField>
+
+<ParamField path="Speaker" type="string">
+  The key of a speaker defined in the `Speakers` table of your `SubtitleDataModule`. The speaker's display name and color are resolved automatically.
+</ParamField>
+
+<ParamField path="SpeakerModifier" type="string">
+  Selects a named modifier variant from the speaker's `Modifiers` table, overriding the speaker's default `DisplayName` and `Color` for this entry only.
+</ParamField>
+
+<ParamField path="SpeakerDisplayName" type="string">
+  Inline override for the speaker's displayed name, bypassing whatever name is defined in the `Speakers` table. Takes precedence over both `DisplayName` and modifier display names.
+</ParamField>
+
+<ParamField path="SpeakerColor" type="Color3">
+  Inline override for the speaker name's color. Takes precedence over the speaker's `Color` and any modifier `Color`.
+</ParamField>
+
+<ParamField path="Level" type="string | number">
+  The subtitle level for this entry. Accepts either a numeric priority value or the string key of a level defined in `SubtitleDataModule.Levels`. See [Subtitle Levels](/guides/subtitle-levels) for details.
+</ParamField>
+
+<ParamField path="Macro" type="string">
+  Applies a named macro as a base template for this entry. The macro's fields are merged in first; the entry's own fields take precedence. See [Speakers and Macros](/guides/speakers-and-macros).
+</ParamField>
+
+## Attaching subtitles to audio entries
+
+Subtitle entries are placed inside your audio data table, directly on the sound entry that has an `Id` and `Length`. Use the `Subtitles` array to attach multiple entries, or `Subtitle` (singular) as shorthand for exactly one entry.
+
+<Note>
+  `Subtitle` (singular) is accepted as a convenience shorthand and is automatically wrapped in an array before processing. Use `Subtitles` when you have more than one entry.
+</Note>
+
+<CodeGroup>
+
+```luau Multiple subtitles (Subtitles array)
+Announcement = {
+    Normal = {
+        Id = 7750285488,
+        Length = 5.49,
+        Subtitles = {
+            {
+                Macro = "NormalAnnouncementChime",
+            },
+            {
+                Time = 1,
+                Message = "Attention: Service personnel, please clear helicopter hangar 1.",
+                Speaker = "ASAS",
+                Level = "Dialog",
+            },
+        },
+    },
+},
+```
+
+```luau Single subtitle (shorthand)
+AlertBeep = {
+    Id = 1234567890,
+    Length = 2.0,
+    Subtitle = {
+        Time = 0,
+        Message = "(Alert beep)",
+        MessageColor = Color3.fromRGB(255, 170, 0),
+    },
+},
+```
+
+</CodeGroup>
+
+## Duration auto-calculation
+
+When you omit the `Duration` field, LocalAudio Subtitles calculates it automatically using the following rules:
+
+<Steps>
+  <Step title="Check for a next entry">
+    If there is a subsequent entry in the `Subtitles` array, the duration is calculated as the `Time` of the next entry minus the `Time` of the current entry.
+  </Step>
+  <Step title="Fall back to audio end">
+    If this is the last entry in the array (no next entry), the duration runs from the entry's `Time` to the total `Length` of the audio.
+  </Step>
+</Steps>
+
+This means you rarely need to specify `Duration` explicitly — just set `Time` values and let the engine fill in the gaps.
+
+```luau
+-- Duration is auto-calculated for all three entries:
+-- Entry 1: 0 → 1 second (gap to next entry's Time)
+-- Entry 2: 1 → 3.5 seconds
+-- Entry 3: 3.5 → 5.632 seconds (end of audio at Length)
+Subtitles = {
+    { Macro = "WarningAnnouncementChime" },           -- Time = 0 (from macro)
+    { Time = 1,   Message = "Warning: Safeguard failure imminent.", Speaker = "ASAS" },
+    { Time = 3.5, Message = "Unable to contain the reactor core.",   Speaker = "ASAS" },
+},
+```
+
+## MessageColor and SpeakerColor
+
+Both `MessageColor` and `SpeakerColor` accept a Roblox `Color3`. The engine wraps the text in a `<font color="rgb(R,G,B)">` rich text tag internally — you never write raw rich text yourself.
+
+```luau
+{
+    Time = 0,
+    Message = "🎵 WRLD & Keepsake - Wishful Thinking 🎵",
+    MessageColor = Color3.fromRGB(0, 170, 255),
+    Duration = 205,
+},
+```
+
+When a `Speaker` is defined and you also supply `SpeakerColor`, the inline color takes precedence over any color defined on the speaker in the `Speakers` table.
+
+## SpeakerDisplayName inline override
+
+Use `SpeakerDisplayName` to show a different name than what the speaker definition provides, without editing the `Speakers` table. This is useful for aliases, stylised names, or localisation.
+
+```luau
+{
+    Time = 5,
+    Message = "This line is attributed to an alias.",
+    Speaker = "Keepsake",
+    SpeakerDisplayName = "K",
+},
+```
+
+`SpeakerDisplayName` takes precedence over both the speaker's `DisplayName` and any modifier `DisplayName`.

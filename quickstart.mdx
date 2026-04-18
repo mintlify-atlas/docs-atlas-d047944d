@@ -1,80 +1,121 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: "Quickstart: subtitles playing in under five minutes"
+description: "Create subtitle data, wire up LocalAudioSubtitles in a LocalScript, and start LocalAudio on the server to get animated subtitles running immediately."
 ---
 
-## Get started in three steps
+This guide walks you through a complete working setup from scratch. By the end, audio tracks in your game will display animated subtitles through Subtitle Engine whenever LocalAudio fires a subtitle event.
 
-Get your documentation site running locally and make your first customization.
+<Tip>
+  Make sure Subtitle Engine is installed in `ReplicatedStorage` and has a **"Self"** profile with no speaker name configured before starting. See the [Installation](/installation) page if you have not done this yet.
+</Tip>
 
-### Step 1: Set up your local environment
+<Steps>
+  <Step title="Create your subtitle data module">
+    Create a `ModuleScript` named `Subtitles` inside `ReplicatedStorage > Data`. This module defines your speakers, macros, levels, and per-track subtitle entries.
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
+    The following example sets up two speakers with colors, a reusable macro for an announcement chime, and two subtitle levels:
 
-### Step 2: Deploy your changes
+    ```luau Subtitles.luau
+    return {
+        Speakers = {
+            Keepsake = {
+                Color = Color3.fromRGB(0, 170, 255),
+                Modifiers = {
+                    Chorus = {
+                        Color = Color3.fromRGB(30, 200, 255),
+                    },
+                    Background = {
+                        Color = Color3.fromRGB(0, 140, 225),
+                    },
+                },
+            },
+            ASAS = {
+                Color = Color3.fromRGB(200, 200, 200),
+            },
+        },
+        Macros = {
+            NormalAnnouncementChime = {
+                Time = 0,
+                Duration = 1,
+                Message = "(Announcement chime)",
+                MessageColor = Color3.fromRGB(0, 170, 255),
+                Level = "ExtraAnnouncement",
+            },
+            WarningAnnouncement = {
+                MessageColor = Color3.fromRGB(255, 170, 0),
+                Level = "Dialog",
+            },
+        },
+        Levels = {
+            Dialog = 1,
+            ExtraAnnouncement = 2,
+        },
+    }
+    ```
 
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
+    <Note>
+      The `Levels` table maps level names to numeric values. A higher number means lower priority — subtitles with a level above `MinimumSubtitleLevel` are suppressed. See the guides for more on filtering.
+    </Note>
+  </Step>
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+  <Step title="Set up LocalAudioSubtitles in a LocalScript">
+    Create a `LocalScript` named `LocalAudioSubtitlesSetup` inside `StarterPlayer > StarterPlayerScripts`. This script requires both `LocalAudioSubtitles` and `LocalAudio` from your `Packages` folder, then passes your subtitle data to `SetUp`.
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
+    ```luau LocalAudioSubtitlesSetup.client.luau
+    --!strict
 
-### Step 3: Go live
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")
+    local LocalAudioSubtitles = require(ReplicatedStorage:WaitForChild("Packages"):WaitForChild("LocalAudioSubtitles"))
+    local LocalAudio = require(ReplicatedStorage:WaitForChild("Packages"):WaitForChild("LocalAudio"))
+    local SubtitlesData = require(ReplicatedStorage:WaitForChild("Data"):WaitForChild("Subtitles"))
 
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
+    LocalAudioSubtitles:SetUp(SubtitlesData :: any)
+    LocalAudio:SetUp()
+    ```
 
-## Next steps
+    `SetUp` connects LocalAudio's `ShowSubtitle` event to the Subtitle Engine renderer and registers your subtitle data with the event transform system.
+  </Step>
 
-Now that you have your docs running, explore these key features:
+  <Step title="Start LocalAudio on the server">
+    Create a `Script` in `ServerScriptService` to initialize LocalAudio on the server side. Server-side setup only requires the module — no additional calls are needed here.
+
+    ```luau LocalAudioSetup.server.luau
+    --!strict
+
+    require(game:GetService("ReplicatedStorage"):WaitForChild("Packages"):WaitForChild("LocalAudio"))
+    ```
+
+    Refer to the [LocalAudio documentation](https://github.com/IITPP-Roblox/LocalAudio) for how to define audio data and trigger playback from the server.
+  </Step>
+
+  <Step title="(Optional) Filter subtitles by level">
+    If you want to suppress lower-priority subtitles — for example, hiding ambient sound captions by default — call `SetSubtitleLevel` before `SetUp`:
+
+    ```luau
+    -- Only show subtitles at level 1 (Dialog) or below.
+    -- Subtitles with Level > 1 (e.g. ExtraAnnouncement = 2) are hidden.
+    LocalAudioSubtitles:SetSubtitleLevel(1)
+    LocalAudioSubtitles:SetUp(SubtitlesData :: any)
+    LocalAudio:SetUp()
+    ```
+
+    Pass a number equal to or above your highest level value to show all subtitles. The default is `0`, which hides every leveled subtitle (since any level number greater than 0 will be suppressed).
+  </Step>
+</Steps>
+
+## What to explore next
+
+Your game now displays animated subtitles for any audio track that has subtitle entries in your data module. The guides cover the full range of configuration options:
 
 <CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
+  <Card title="Subtitle data guide" icon="file-lines" href="/guides/subtitle-data">
+    Learn the full structure of subtitle data modules, including per-track entries and timing.
+  </Card>
+  <Card title="Speakers and macros" icon="users" href="/guides/speakers-and-macros">
+    Define speaker profiles with display names and colors, and create reusable macro templates.
+  </Card>
 </CardGroup>
 
 <Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
+  The demo project in the repository (`LocalAudioSubtitlesSetup.client.luau` and `Subtitles.luau`) mirrors exactly what this quickstart covers. You can use it as a reference or starting point.
 </Note>

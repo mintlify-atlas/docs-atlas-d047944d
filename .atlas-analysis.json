@@ -1,0 +1,64 @@
+{
+  "projectType": "sdk-library",
+  "projectName": "LocalAudio Subtitles with Subtitle Engine",
+  "projectDescription": "A drop-in modification of TheNexusAvenger's LocalAudioSubtitles that routes subtitle display through Norteous's Subtitle Engine for enhanced visual presentation in Roblox games.",
+  "theme": "palm",
+  "primaryColor": "#848485",
+  "lightColor": "#171718",
+  "darkColor": "#cecece",
+  "navigation": {
+    "groups": [
+      {
+        "group": "Get Started",
+        "pages": [
+          "introduction",
+          "installation",
+          "quickstart"
+        ]
+      },
+      {
+        "group": "Guides",
+        "pages": [
+          "guides/subtitle-data",
+          "guides/speakers-and-macros",
+          "guides/subtitle-levels",
+          "guides/vr-support"
+        ]
+      },
+      {
+        "group": "API Reference",
+        "pages": [
+          "api/localaudiosubtitles",
+          "api/types",
+          "api/subtitle-engine-integration"
+        ]
+      },
+      {
+        "group": "Resources",
+        "pages": [
+          "resources/limitations",
+          "resources/demo-example"
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Drop-in replacement for LocalAudioSubtitles module with Subtitle Engine rendering",
+    "Typing animation support with configurable per-character delay",
+    "Speaker profiles with display names, colors, and modifiers",
+    "Subtitle levels for filtering content by priority",
+    "Macro system for reusable subtitle data templates",
+    "Rolloff-based audio distance detection for spatial subtitles",
+    "Subtitle deduplication and stacking for overlapping audio",
+    "VR support via Nexus VR Core integration"
+  ],
+  "publicApiSurface": [
+    "LocalAudioSubtitles:SetUp(SubtitlesData)",
+    "LocalAudioSubtitles:ShowSubtitle(Message, Duration, Level, ReferenceSound)",
+    "LocalAudioSubtitles:SetSubtitleLevel(MinimumSubtitleLevel)",
+    "LocalAudioSubtitles.MinimumSubtitleLevel",
+    "SubtitleData type",
+    "SubtitleSpeaker type",
+    "SubtitleDataModule type"
+  ]
+}

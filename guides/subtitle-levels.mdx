@@ -1,0 +1,110 @@
+---
+title: "Subtitle Levels: Priority and Accessibility Filtering"
+description: "Use subtitle levels to assign numeric priorities to subtitle lines, then filter them at runtime so players only see the subtitles most relevant to them."
+---
+
+Subtitle levels are a priority system that lets you categorize subtitle entries and selectively hide lower-priority categories at runtime. This is particularly useful for accessibility settings — for example, letting players choose whether they see transcriptions for background sound effects in addition to spoken dialogue.
+
+## Defining levels
+
+Levels are defined in the `Levels` table of your `SubtitleDataModule`. Each entry maps a human-readable name to a numeric priority value. Lower numbers indicate higher priority (more essential subtitles).
+
+```luau
+Levels = {
+    Dialog = 1,
+    ExtraAnnouncement = 2,
+},
+```
+
+You can define as many levels as your game needs. The names are arbitrary — choose names that reflect what each category means in your context.
+
+## Assigning a level to a subtitle entry
+
+Set the `Level` field on any subtitle entry to either the string name of a level or a raw number.
+
+<Tabs>
+  <Tab title="Using a level name (recommended)">
+    ```luau
+    {
+        Time = 1,
+        Message = "Attention: Service personnel, please clear helicopter hangar 1.",
+        Speaker = "ASAS",
+        Level = "Dialog",
+    },
+    ```
+  </Tab>
+  <Tab title="Using a raw number">
+    ```luau
+    {
+        Time = 1,
+        Message = "Attention: Service personnel, please clear helicopter hangar 1.",
+        Speaker = "ASAS",
+        Level = 1,
+    },
+    ```
+  </Tab>
+</Tabs>
+
+Using string names is recommended because it keeps your subtitle data readable and automatically stays in sync if you renumber your levels in the `Levels` table.
+
+<Warning>
+  If you use a string level name in a subtitle entry but that name is not defined in `SubtitleDataModule.Levels`, the engine throws a runtime error: `Unknown subtitle level: <name>`. Always make sure your level names match exactly.
+</Warning>
+
+## How MinimumSubtitleLevel works
+
+The `LocalAudioSubtitles` module has a `MinimumSubtitleLevel` setting. The engine compares each subtitle entry's resolved numeric level against this value:
+
+- If a subtitle's level number is **greater than** `MinimumSubtitleLevel`, the subtitle is **skipped** and not shown.
+- If a subtitle's level number is **less than or equal to** `MinimumSubtitleLevel`, the subtitle **is shown**.
+- Subtitles with **no level set** are always shown regardless of `MinimumSubtitleLevel`.
+
+<Note>
+  Think of `MinimumSubtitleLevel` as the maximum numeric priority you want to show. Set it lower to be more selective; set it higher (or leave it at a high value) to show everything.
+</Note>
+
+### Example: Dialog = 1, ExtraAnnouncement = 2
+
+With the demo level definitions (`Dialog = 1`, `ExtraAnnouncement = 2`):
+
+| MinimumSubtitleLevel | Dialog (1) shown? | ExtraAnnouncement (2) shown? |
+|---|---|---|
+| 1 | Yes | No |
+| 2 | Yes | Yes |
+| 0 | No | No |
+
+Setting `MinimumSubtitleLevel` to `1` means only `Dialog`-level subtitles appear — the chime descriptions (tagged `ExtraAnnouncement = 2`) are suppressed.
+
+## Changing the level at runtime
+
+Call `SetSubtitleLevel(n)` on the `LocalAudioSubtitles` module to change `MinimumSubtitleLevel` while the game is running. The new value takes effect for any subtitle events evaluated after the call.
+
+```luau
+-- Show only Dialog subtitles (hide ExtraAnnouncement)
+LocalAudioSubtitles:SetSubtitleLevel(1)
+
+-- Show everything
+LocalAudioSubtitles:SetSubtitleLevel(2)
+```
+
+## Accessibility settings in game menus
+
+<Tip>
+  Expose `SetSubtitleLevel` in your game's settings or accessibility menu so players can choose how many subtitle categories they want to see. A common pattern is two options: "Dialogue only" (level 1) and "All subtitles" (level 2 or higher), letting players reduce visual noise without losing spoken dialogue.
+</Tip>
+
+The following example shows a minimal integration pattern:
+
+```luau
+local LocalAudioSubtitles = require(...)
+
+local function ApplySubtitleSetting(showAllSubtitles: boolean)
+    if showAllSubtitles then
+        LocalAudioSubtitles:SetSubtitleLevel(2)
+    else
+        LocalAudioSubtitles:SetSubtitleLevel(1)
+    end
+end
+```
+
+Macros can also carry level values, so you can define a macro like `WarningAnnouncement` with `Level = "Dialog"` and have it applied automatically to every entry that uses that macro — no need to repeat the level on each entry individually. See [Speakers and Macros](/guides/speakers-and-macros) for details.

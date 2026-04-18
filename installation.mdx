@@ -1,0 +1,78 @@
+---
+title: "Installing LocalAudio Subtitles with Subtitle Engine"
+description: "Install Subtitle Engine, LocalAudio, and LocalAudio Subtitles into your Roblox project step by step, using Wally or manual file placement."
+---
+
+This module requires three pieces to be in place before it works: Subtitle Engine (installed manually from the DevForum), LocalAudio (installed via Wally), and this module itself (also via Wally, or by copying the source). Follow the steps below in order.
+
+<Warning>
+  Subtitle Engine must have a profile named **"Self"** with no speaker name configured. If this profile is missing or has a speaker name set, subtitles will not display correctly. See step 4 for details.
+</Warning>
+
+<Steps>
+  <Step title="Install Subtitle Engine">
+    Download the latest version of Subtitle Engine from the [Roblox DevForum post](https://devforum.roblox.com/t/subtitle-engine/3781802). Place the `SubtitleEngine` module inside `ReplicatedStorage` in your Roblox game.
+
+    Subtitle Engine does not have a Wally package — it is distributed as a free model or script directly from the DevForum thread.
+  </Step>
+
+  <Step title="Install LocalAudio via Wally">
+    Add LocalAudio to your `wally.toml` dependencies:
+
+    ```toml wally.toml
+    [dependencies]
+    LocalAudio = "iitpp-roblox/localaudio@1.5.2"
+    ```
+
+    Then run:
+
+    ```bash
+    wally install
+    ```
+
+    This places the `LocalAudio` module in your `Packages` folder.
+  </Step>
+
+  <Step title="Install this module">
+    Add LocalAudio Subtitles to your `wally.toml` dependencies:
+
+    ```toml wally.toml
+    [dependencies]
+    LocalAudio = "iitpp-roblox/localaudio@1.5.2"
+    LocalAudioSubtitles = "iitpp-roblox/localaudio-subtitles@1.6.0"
+    ```
+
+    Then run:
+
+    ```bash
+    wally install
+    ```
+
+    **Manual alternative:** If you are not using Wally, copy the contents of the `src/` folder from the repository into a `ModuleScript` named `LocalAudioSubtitles` inside your `Packages` folder. Ensure all child modules are preserved.
+
+    <Note>
+      If you are replacing an existing LocalAudioSubtitles installation, delete the old module before copying the new one.
+    </Note>
+  </Step>
+
+  <Step title="Verify the Subtitle Engine &quot;Self&quot; profile">
+    Open the Subtitle Engine configuration. Confirm that a profile named **"Self"** exists and that its speaker name field is empty (not set to any value). This profile is used for all subtitles displayed by this module.
+
+    If you have not changed any Subtitle Engine defaults, the "Self" profile should already exist with no speaker name. You do not need to do anything further.
+  </Step>
+</Steps>
+
+## Toolchain
+
+The repository uses the following aftman tools if you are building from source:
+
+| Tool  | Version |
+| ----- | ------- |
+| rojo  | 7.5.1   |
+| wally | 0.3.2   |
+
+Install them via [aftman](https://github.com/LPGhatguy/aftman) and run `wally install` followed by `rojo build` to produce the installable `rbxm` file.
+
+## Next steps
+
+Once everything is installed, follow the [Quickstart](/quickstart) to write your first subtitle data module and connect it to LocalAudio.

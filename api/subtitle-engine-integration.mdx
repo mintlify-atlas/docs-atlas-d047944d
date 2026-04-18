@@ -1,0 +1,118 @@
+---
+title: "How Subtitle Engine integration works"
+description: "Explains the Self profile requirement, the typing animation formula, rolloff-based loudness detection, and subtitle deduplication behavior under the hood."
+---
+
+LocalAudio Subtitles does not render subtitle text itself — it delegates display to [Subtitle Engine](https://devforum.roblox.com/t/subtitle-engine-open-source-accessibility-module/2446113), an open-source accessibility module. This page explains the specific calls the library makes to Subtitle Engine, how the typewriter animation timings are computed, and how spatial audio visibility is determined via loudness polling.
+
+## The "Self" profile requirement
+
+Subtitle Engine uses named profiles to control how subtitles appear. LocalAudio Subtitles always calls into a profile named `"Self"`. Specifically, it calls:
+
+- `SubtitleEngine.editProfile("Self", { extraWaitTime = ... })` — updates the profile's hold time before the subtitle disappears.
+- `SubtitleEngine.localSubtitle("Self", text)` — fires the subtitle text through that profile.
+
+This means your Subtitle Engine setup **must** include a profile named `"Self"` before `LocalAudioSubtitles:SetUp()` is called. The profile should have no speaker name configured unless you want every subtitle from this library to display that speaker name.
+
+<Warning>
+  LocalAudio Subtitles always targets the `"Self"` profile. If you have configured Subtitle Engine's `"Self"` profile with a speaker name, that name will appear as a prefix on every subtitle the library renders — regardless of whether the subtitle entry has its own speaker. Configure `"Self"` with no speaker name for correct behavior.
+</Warning>
+
+---
+
+## Typing animation formula
+
+The library uses Subtitle Engine's `<typeDelay>` rich text tag to create a typewriter effect. The formula differs depending on whether the subtitle has a speaker name.
+
+### Subtitles with a speaker
+
+When a speaker name is present, the name appears instantly and the message body types out over half the subtitle's duration.
+
+```luau
+local typeDelayPerChar = (self.Duration * 0.5) / string.len(self.Message)
+
+SubtitleEngine.editProfile("Self", { extraWaitTime = self.Duration * 0.5 })
+SubtitleEngine.localSubtitle(
+    "Self",
+    '<typeDelay = 0><b>' .. self.SpeakerName .. '</b>: </typeDelay>'
+    .. '<typeDelay = ' .. typeDelayPerChar .. '>' .. self.Message .. '</typeDelay>'
+)
+```
+
+The first half of the duration (`Duration * 0.5`) is spent typing the message body character by character. The `extraWaitTime` of `Duration * 0.5` keeps the subtitle visible after typing finishes, so the total on-screen time equals the full `Duration`.
+
+### Subtitles without a speaker
+
+When there is no speaker name, the entire message types out with a fixed delay of 0.03 seconds per character, and `extraWaitTime` is set to the full duration so the subtitle holds after typing completes.
+
+```luau
+SubtitleEngine.editProfile("Self", { extraWaitTime = self.Duration })
+SubtitleEngine.localSubtitle(
+    "Self",
+    '<typeDelay = 0.03>' .. self.Message .. '</typeDelay>'
+)
+```
+
+<Note>
+  For very long messages with short durations, the calculated `typeDelayPerChar` for speaker subtitles may become smaller than 0.03 seconds — the text will simply type faster. The formula does not clamp the delay, so extremely short durations on long messages will compress the animation proportionally.
+</Note>
+
+---
+
+## Rolloff detection via PlaybackLoudness
+
+For spatial audio (subtitles where a `ReferenceSound` is passed to `ShowSubtitle`), the library monitors the sound's `PlaybackLoudness` on every `RunService.Stepped` frame to determine whether the sound is audible at the player's current position. This is what enables rolloff-based distance filtering — if the player walks out of the sound's range, the subtitle is hidden automatically.
+
+The detection logic uses two thresholds defined as module-level constants:
+
+```luau
+local PLAYBACK_LOUDNESS_THRESHOLD = 50
+local PLAYBACK_LOUDNESS_SILENCE_DELAY = 1
+```
+
+The full loudness polling loop from `SubtitleEntry:AddReferenceSound`:
+
+```luau
+self.PlaybackLoudnessEvents[ReferenceSound] = RunService.Stepped:Connect(function()
+    local NewAudible = LastAudible
+    if NewAudible then
+        if ReferenceSound.PlaybackLoudness >= PLAYBACK_LOUDNESS_THRESHOLD then
+            LastLoudnessTime = tick()
+        elseif tick() - LastLoudnessTime > PLAYBACK_LOUDNESS_SILENCE_DELAY then
+            NewAudible = false
+        end
+    else
+        if ReferenceSound.PlaybackLoudness >= PLAYBACK_LOUDNESS_THRESHOLD then
+            LastLoudnessTime = tick()
+            NewAudible = true
+        end
+    end
+
+    if NewAudible ~= LastAudible then
+        if NewAudible then
+            self:AddMultiple()
+        else
+            self:RemoveMultiple()
+        end
+        LastAudible = NewAudible
+        self.LastReferenceSoundAudible[ReferenceSound] = NewAudible
+    end
+end)
+```
+
+The behavior is:
+
+- **Becoming audible**: `PlaybackLoudness` rises to 50 or above → the subtitle is added to the visible set immediately.
+- **Becoming inaudible**: `PlaybackLoudness` drops below 50, and remains below 50 for more than 1 second → the subtitle is removed from the visible set. The 1-second delay prevents flickering when loudness dips briefly (for example, during natural audio envelope variations).
+
+<Info>
+  `Sound.PlaybackLoudness` reflects the loudness as heard at the listener's position, which is affected by the sound's `RollOffMaxDistance` and attenuation model. A sound that is too far away will have a `PlaybackLoudness` near zero, causing the subtitle to be hidden. When the player moves closer and loudness exceeds 50 again, the subtitle reappears.
+</Info>
+
+---
+
+## Deduplication
+
+If `ShowSubtitle` is called with a message that is already being displayed (for example, because the same audio asset plays twice simultaneously), the library does not create a second independent subtitle entry. Instead, the existing entry's internal "multiple" counter is incremented via `AddMultiple()`. When one of the sounds stops being audible, `RemoveMultiple()` is called — the subtitle remains visible until all concurrent instances of that message have ended.
+
+This means you will never see the same subtitle text stacked twice in the window, even when the same audio plays from multiple sources at once.

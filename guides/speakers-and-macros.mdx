@@ -1,0 +1,169 @@
+---
+title: "Speakers and Macros: Reusable Subtitle Templates"
+description: "Define named speakers with colors and modifier variants, and create reusable macro templates to keep your subtitle data concise and consistent."
+---
+
+LocalAudio Subtitles provides two systems for reducing repetition in your subtitle data: **speakers** give named characters consistent display names and colors, and **macros** let you define reusable entry templates that individual subtitle entries can inherit and override.
+
+Both are defined in the `SubtitleDataModule` that you pass to the library.
+
+## Speakers
+
+The `Speakers` table maps speaker keys (strings) to `SubtitleSpeaker` objects. When a subtitle entry sets `Speaker = "Keepsake"`, the engine looks up that key and applies the speaker's display name and color automatically.
+
+### Defining a speaker
+
+<ParamField path="Color" type="Color3">
+  The color used to render the speaker's name in the subtitle. Applied as a `<font color="rgb(...)">` rich text tag.
+</ParamField>
+
+<ParamField path="DisplayName" type="string">
+  The name shown in the subtitle. If omitted, the speaker key itself is used as the display name.
+</ParamField>
+
+<ParamField path="Modifiers" type="{ [string]: { Color: Color3?, DisplayName: string? } }">
+  A table of named variants that override the speaker's default `Color` and/or `DisplayName` for specific subtitle lines. Reference a modifier with `SpeakerModifier` on the entry.
+</ParamField>
+
+```luau
+Speakers = {
+    Keepsake = {
+        Color = Color3.fromRGB(0, 170, 255),
+        Modifiers = {
+            Chorus = {
+                Color = Color3.fromRGB(30, 200, 255),
+            },
+            Background = {
+                Color = Color3.fromRGB(0, 140, 225),
+            },
+        },
+    },
+    ASAS = {
+        Color = Color3.fromRGB(200, 200, 200),
+    },
+},
+```
+
+### Referencing a speaker in a subtitle entry
+
+Set the `Speaker` field to the speaker's key. The engine resolves `DisplayName` and `Color` from the `Speakers` table.
+
+```luau
+{
+    Time = 32,
+    Message = "I'm counting on the answer",
+    Speaker = "Keepsake",
+},
+```
+
+### Using SpeakerModifier
+
+When a speaker has multiple variants — for example, a chorus voice with a slightly different color — set `SpeakerModifier` to the modifier key. The modifier's `Color` and `DisplayName` (if defined) override the speaker's defaults for that single entry.
+
+```luau
+{
+    Time = 63.4,
+    Message = "Is it wishful thinkin'",
+    Speaker = "Keepsake",
+    SpeakerModifier = "Chorus",
+},
+```
+
+The modifier only applies to the entry that sets `SpeakerModifier`. Other entries referencing the same speaker continue to use the base `Color` and `DisplayName`.
+
+### Inline overrides
+
+You can override a speaker's display name or color on any individual entry without touching the `Speakers` table:
+
+- `SpeakerDisplayName` — replaces the display name (takes precedence over `DisplayName` and any modifier `DisplayName`).
+- `SpeakerColor` — replaces the name color (takes precedence over `Color` and any modifier `Color`).
+
+See [Subtitle Data](/guides/subtitle-data) for the full field reference.
+
+## Macros
+
+The `Macros` table maps macro keys (strings) to partial `SubtitleData` tables. Macros act as base templates: when an entry sets `Macro = "MyMacro"`, the macro's fields are merged into the entry first, and then the entry's own fields are applied on top.
+
+### Defining a macro
+
+A macro is just a `SubtitleData` table stored under a name. Any field that is valid on a subtitle entry is valid in a macro.
+
+```luau
+Macros = {
+    NormalAnnouncementChime = {
+        Time = 0,
+        Duration = 1,
+        Message = "(Announcement chime)",
+        MessageColor = Color3.fromRGB(0, 170, 255),
+        Level = "ExtraAnnouncement",
+    },
+    WarningAnnouncement = {
+        MessageColor = Color3.fromRGB(255, 170, 0),
+        Level = "Dialog",
+    },
+},
+```
+
+### Using a macro in a subtitle entry
+
+Set `Macro` to the macro's key. The macro's fields fill in first; any field you set directly on the entry overrides the macro's value.
+
+```luau
+{
+    Macro = "NormalAnnouncementChime",
+    -- All fields (Time, Duration, Message, MessageColor, Level) come from the macro.
+},
+
+{
+    Time = 1,
+    Message = "Warning: Safeguard failure imminent.",
+    Speaker = "ASAS",
+    Macro = "WarningAnnouncement",
+    -- MessageColor and Level come from the macro; Time, Message, Speaker override.
+},
+```
+
+### Macro chaining
+
+A macro can itself reference another macro via its own `Macro` field. The engine resolves the full chain from the outermost macro inward, applying each layer in order so that more specific values always win.
+
+```luau
+Macros = {
+    WarningAnnouncement = {
+        MessageColor = Color3.fromRGB(255, 170, 0),
+        Level = "Dialog",
+    },
+    WarningAnnouncementChime = {
+        Time = 0,
+        Duration = 1,
+        Message = "(Warning announcement chime)",
+        MessageColor = Color3.fromRGB(255, 170, 0),
+        Level = "ExtraAnnouncement",
+        Macro = "WarningAnnouncement",  -- inherits from WarningAnnouncement
+    },
+},
+```
+
+In the example above, `WarningAnnouncementChime` inherits from `WarningAnnouncement`. Its own `MessageColor`, `Level`, and other fields override the inherited values where they overlap.
+
+The resolution order for an entry using a chained macro is:
+
+<Steps>
+  <Step title="Outermost macro base">
+    The fields of the deepest ancestor macro in the chain are applied first.
+  </Step>
+  <Step title="Each macro in the chain">
+    Each macro in the chain overrides the fields of the macros that came before it, working from ancestor to direct parent.
+  </Step>
+  <Step title="The entry's own fields">
+    The entry's own field values are applied last and take the highest precedence.
+  </Step>
+</Steps>
+
+<Warning>
+  Cyclic macro references (where macro A references macro B and macro B references macro A) are not allowed. The engine detects cycles at runtime and throws a Luau error listing the full reference chain, for example: `There is a cyclic reference of macros: A->B->A`.
+</Warning>
+
+### What macros cannot inherit
+
+The `Macro` field itself is never inherited. Even if a parent macro sets `Macro`, that field is stripped during resolution and only used to locate the next link in the chain. The final merged entry will never contain a `Macro` key.

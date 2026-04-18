@@ -1,0 +1,55 @@
+---
+title: "Known limitations of the Subtitle Engine integration"
+description: "Understand the current limitations of LocalAudio Subtitles with Subtitle Engine, including rolloff detection constraints, stacking, and profile restrictions."
+---
+
+LocalAudio Subtitles with Subtitle Engine closely matches the behavior of native LocalAudioSubtitles, but a few edge cases behave differently due to how Subtitle Engine works. Understanding these limitations helps you plan your subtitle implementation and set appropriate player expectations.
+
+## Rolloff detection is one-way
+
+For spatial audio (sounds attached to a `Part`), the module monitors `Sound.PlaybackLoudness` every frame to decide whether to show a subtitle. When loudness rises above the threshold of `50`, the subtitle appears. However, **the subtitle cannot be removed automatically when a player walks away** mid-display.
+
+What this means in practice:
+- A player who enters rolloff range will correctly see the subtitle appear.
+- A player who walks out of rolloff range after the subtitle has started will continue seeing it until the duration expires.
+- The 1-second `PLAYBACK_LOUDNESS_SILENCE_DELAY` buffer helps in cases where the audio source itself goes quiet, but it does not help with player movement.
+
+<Info>
+  This is the same behavior described in the original README: "it cannot remove a subtitle automatically when you get too far away."
+</Info>
+
+## No stacking indicator
+
+When the same audio track plays multiple times simultaneously, the module groups all instances under a single subtitle entry rather than showing duplicates. Internally, a `Multiple` counter tracks how many instances are active.
+
+Native subtitle implementations sometimes show a `(×2)` or similar indicator when multiple instances stack. Subtitle Engine does not support this natively, so stacked subtitles appear identical to a single instance — there is no visual count indicator.
+
+## Always uses the "Self" profile
+
+This module always calls Subtitle Engine using the hardcoded `"Self"` profile name:
+
+```luau
+SubtitleEngine.editProfile("Self", { extraWaitTime = duration })
+SubtitleEngine.localSubtitle("Self", text)
+```
+
+You cannot route different subtitle types to different Subtitle Engine profiles. If you need per-speaker Subtitle Engine profile routing, a pull request is welcome.
+
+<Warning>
+  If your Subtitle Engine "Self" profile has a speaker name configured, that name will appear on every subtitle displayed by this module.
+</Warning>
+
+## Contributing
+
+These limitations are all addressable with code changes. The repository welcomes pull requests:
+
+[LumenflameRBLX/LocalAudio-Subtitles-With-SubtitleEngine](https://github.com/LumenflameRBLX/LocalAudio-Subtitles-With-SubtitleEngine)
+
+<CardGroup cols={2}>
+  <Card title="Subtitle Engine integration" icon="gear" href="/api/subtitle-engine-integration">
+    Understand how the Subtitle Engine calls work internally.
+  </Card>
+  <Card title="Subtitle data guide" icon="file-lines" href="/guides/subtitle-data">
+    Learn how subtitle entries and spatial audio are configured.
+  </Card>
+</CardGroup>
